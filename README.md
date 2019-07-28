@@ -1,9 +1,21 @@
-# Intrukcja kompilacji
+# Raise
 
-`make all` zbuduje program **raise**, który można włączyć poleceniem `./raise <plik core>`
+> The default action of certain signals is to cause a process to terminate and produce a core dump file, a disk file containing an image of the process's memory at the time of termination. - man 5 core
 
-# Opis rozwiązania
+Programm `raise` recreates a terminated process from a core dump file. 
 
-Program **raise** jest linkowany pod niski adres. W tym celu jest wykorzystywany jest skrypt linkera, który ostawia standardowy adres ładowania na 0x00048000. Program **raise** zmienia adres stosu na 0x07648000 oraz ustawia jego wielkośc na 8MB. W takim kontekście odmapowuje wszystko z przestrzni użytkownika co leży powyżej standardowego rejestru ładowania.
+It's not advised to `raise` a process that died because of a "natural" `SIGSEV`. Recreated process will reexecute a problematic instruction and terminate instantly.
 
-Następnie przetwarzany jest plik elf, mapowane są odpowiednie fragmenty programu oraz zostaje ustawione TLS (o ile informacja o TLS dostępna w corze). Zostaje wywołany plik assemblerowy, który ładuje odpowiednie rejestry ogólnego przeznaczenia, ustawia rejestr `eflags`, oraz instrukcją `jmp` ustawia odpowiednią wartość rejetru `eip`.
+## Limitations
+
+The program works with 32-bits processes on x86 processors. Moreover:
+* core dump doesn’t contain information about open files - program `raise` assumes there were no open files except stdin, stdout, and stderr,
+* it can't be ensured that the new process will have exactly the same PID as the original one,
+* it's assumed a terminated process didn’t use threads,
+* some state of the process, e.g. related to the memory layout (see: `man 2 prctl`), can’t be recreated based on a core file.
+
+Additionally, we assume the standard memory layout of a terminated process - we assume memory below the standard loading address `0x8048000` was unused.
+
+## Build
+
+`make all` builds a program `raise` which can be invoked with a command `./raise <core_dump>`.
